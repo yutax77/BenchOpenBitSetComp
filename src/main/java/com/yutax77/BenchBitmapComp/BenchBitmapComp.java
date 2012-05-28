@@ -1,71 +1,52 @@
 package com.yutax77.BenchBitmapComp;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Random;
 import java.util.zip.DataFormatException;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
-import java.util.zip.Inflater;
 
 import org.apache.lucene.util.OpenBitSet;
 
 public class BenchBitmapComp {
 	public static void main(String[] args) throws IOException, DataFormatException{
+		//圧縮方式
 		//Bitmapのサイズ
-		//占有率
-		if(args.length < 2)
+		//カーディナリティ
+		if(args.length < 3)
 			throw new IllegalArgumentException();
 		
-		BenchBitmapComp bench = new BenchBitmapComp(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
+		int size = Integer.parseInt(args[1]);
+		int cardinality = Integer.parseInt(args[2]);
+		
+		System.out.println("Size: " + size + ", Cardinality: " + cardinality);
+		OpenBitSet bitmap = createBitmap(size, cardinality);
+		BenchBitmapComp bench = new BenchBitmapComp(createArchiver(args[0]),
+													bitmap);
 		bench.bench();
-		
 	}
 	
-	private int size;
-	private int occ;
-	
-	public BenchBitmapComp(int size, int occ){
-		this.size = size;
-		this.occ = occ;
+	static Archiver createArchiver(String type){
+		if("NO".equalsIgnoreCase(type))
+			return new NoArchiver();
+		else if("ZLIB".equalsIgnoreCase(type))
+			return new ZlibArchiver();
+		else
+			throw new IllegalArgumentException(type);
 	}
 	
-	public void bench() throws IOException, DataFormatException {
-		System.out.println("Size: " + size + ", Cardinality: " + occ);
+	public static OpenBitSet createBitmap(int size, int cardinality) {
+		OpenBitSet result = new OpenBitSet(size);
 		
-		OpenBitSet bitmap = createBitmap();
+		Random rdm = new Random();
+		for(int i = 0; i < cardinality; i++){
+			int n = 0;
+			do{
+				n = rdm.nextInt(cardinality);				
+			}while(result.fastGet(n));
+			
+			result.fastSet(n);
+		}
 		
-		//圧縮
-		
-		long startComp = System.nanoTime();
-		byte[] comp = convertToCompByte(bitmap.getBits());
-		long endComp = System.nanoTime();
-		showResults("Comp", comp.length, (endComp - startComp));
-		
-		long startNoCmp = System.nanoTime();
-		byte[] nocomp = convertToByte(bitmap.getBits());
-		long endNoComp = System.nanoTime();
-		showResults("No Comp", nocomp.length, (endNoComp - startNoCmp));
-
-		
-		//解凍
-		long startFromCompToLong = System.nanoTime();
-		long[] decompedFromcomp = convertFromCompByteToLong(comp);
-		OpenBitSet decompedFomCompBitmap = new OpenBitSet(decompedFromcomp, decompedFromcomp.length);
-		long endFromCompToLong = System.nanoTime();
-		boolean isEqual = bitmap.equals(decompedFomCompBitmap);
-		showDecompResults("From comp " + isEqual, (endFromCompToLong - startFromCompToLong));
-		
-		long startToLong = System.nanoTime();
-		long[] decomped = convertToLong(nocomp);
-		OpenBitSet decompedBitmap = new OpenBitSet(decomped, decomped.length);
-		long endToLong = System.nanoTime();
-		isEqual = bitmap.equals(decompedBitmap);
-		showDecompResults("From no comp " + isEqual, (endToLong - startToLong));
-
+		return result;
 	}
 	
 	private static void showResults(String name, int length, long elapsedNanoTime){
@@ -76,75 +57,30 @@ public class BenchBitmapComp {
 		System.out.println(name + " Elapsed time: " + elapsedNanoTime / 1000 /1000 + " ms");
 	}
 	
-	public OpenBitSet createBitmap() {
-		OpenBitSet result = new OpenBitSet(size);
-		
-		Random rdm = new Random();
-		for(int i = 0; i < occ; i++){
-			int n = 0;
-			do{
-				n = rdm.nextInt(occ);				
-			}while(result.fastGet(n));
-			
-			result.fastSet(n);
-		}
-		
-		return result;
+	private Archiver archiver;
+	private OpenBitSet bitmap;
+	
+	public BenchBitmapComp(Archiver archiver, OpenBitSet bitmap){
+		this.archiver = archiver;
+		this.bitmap = bitmap;
 	}
 	
-	public byte[] convertToByte(long[] longArray) throws IOException{
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		DataOutputStream data = new DataOutputStream(out);
+	public void bench() throws IOException, DataFormatException {
+		//圧縮
+		long startComp = System.nanoTime();
+		byte[] byteArray = Converter.convertToByte(bitmap.getBits());
+		byte[] comp = archiver.compress(byteArray);
+		long endComp = System.nanoTime();
+		showResults("Comp", comp.length, (endComp - startComp));
 		
-		for(int i = 0; i < longArray.length; i++){
-			data.writeLong(longArray[i]);
-		}
-		
-		return out.toByteArray();
+		//解凍
+		long startFromCompToLong = System.nanoTime();
+		byte[] decomp = archiver.decompress(comp);
+		long[] longArray = Converter.convertToLong(decomp);
+		OpenBitSet decompedFomCompBitmap = new OpenBitSet(longArray, longArray.length);
+		long endFromCompToLong = System.nanoTime();
+		boolean isEqual = bitmap.equals(decompedFomCompBitmap);
+		showDecompResults("From comp " + isEqual, (endFromCompToLong - startFromCompToLong));
 	}
-	
-	public long[] convertToLong(byte[] byteArray) throws IOException {
-		ByteArrayInputStream in = new ByteArrayInputStream(byteArray);
-		DataInputStream data = new DataInputStream(in);
-		
-		int length = byteArray.length / 8;
-		long[] result = new long[length];
-		for(int i = 0; i < length; i++){
-			result[i] = data.readLong();
-		}
-		
-		return result;
-	}
-	
-	public byte[] convertToCompByte(long[] longArray) throws IOException{
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		Deflater comp = new Deflater();
-		comp.setLevel(Deflater.BEST_COMPRESSION);
-		
-		DeflaterOutputStream dos = new DeflaterOutputStream(out, comp);
-		DataOutputStream data = new DataOutputStream(dos);
-		
-		for(int i = 0; i < longArray.length; i++){
-			data.writeLong(longArray[i]);
-		}
-		
-		dos.finish();
-		return out.toByteArray();
-	}
-	
-	public long[] convertFromCompByteToLong(byte[] byteArray) throws IOException, DataFormatException {
-		Inflater decomp = new Inflater();
-		decomp.setInput(byteArray);
-		ByteArrayOutputStream decomped = new ByteArrayOutputStream();
-		
-		byte[] buf = new byte[4096];
-		int count = 0;
-		while(!decomp.finished()) {
-			count = decomp.inflate(buf);
-			decomped.write(buf, 0, count);
-		}
-		
-		byte[] decompedArray = decomped.toByteArray();
-		return convertToLong(decompedArray);
-	}
+
 }
