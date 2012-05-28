@@ -29,6 +29,8 @@ public class BenchBitmapComp {
 			return new NoArchiver();
 		else if("ZLIB".equalsIgnoreCase(type))
 			return new ZlibArchiver();
+		else if("SNAPPY".equalsIgnoreCase(type))
+			return new SnappyArchiver();
 		else
 			throw new IllegalArgumentException(type);
 	}
