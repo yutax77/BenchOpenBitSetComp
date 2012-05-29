@@ -7,6 +7,8 @@ import java.util.zip.DataFormatException;
 import org.apache.lucene.util.OpenBitSet;
 
 public class BenchBitmapComp {
+	private static final int REPEAT_NUM = 10;
+	
 	public static void main(String[] args) throws IOException, DataFormatException{
 		//圧縮方式
 		//Bitmapのサイズ
@@ -17,7 +19,7 @@ public class BenchBitmapComp {
 		int size = Integer.parseInt(args[1]);
 		int cardinality = Integer.parseInt(args[2]);
 		
-		System.out.println("Size: " + size + ", Cardinality: " + cardinality);
+		System.out.println("Type: " + args[0] +", Size: " + size + ", Cardinality: " + cardinality);
 		OpenBitSet bitmap = createBitmap(size, cardinality);
 		BenchBitmapComp bench = new BenchBitmapComp(createArchiver(args[0]),
 													bitmap);
@@ -51,12 +53,8 @@ public class BenchBitmapComp {
 		return result;
 	}
 	
-	private static void showResults(String name, int length, long elapsedNanoTime){
-		System.out.println(name + " " + length + " byte(s), Elapsed time: " + elapsedNanoTime / 1000 /1000 + " ms");
-	}
-	
-	private static void showDecompResults(String name, long elapsedNanoTime){
-		System.out.println(name + " Elapsed time: " + elapsedNanoTime / 1000 /1000 + " ms");
+	private static void showResults(String name, long elapsedNanoTime){
+		System.out.println(name + ", " + elapsedNanoTime / 1000 /1000);
 	}
 	
 	private Archiver archiver;
@@ -68,21 +66,21 @@ public class BenchBitmapComp {
 	}
 	
 	public void bench() throws IOException, DataFormatException {
-		//圧縮
-		long startComp = System.nanoTime();
-		byte[] byteArray = Converter.convertToByte(bitmap.getBits());
-		byte[] comp = archiver.compress(byteArray);
-		long endComp = System.nanoTime();
-		showResults("Comp", comp.length, (endComp - startComp));
-		
-		//解凍
-		long startFromCompToLong = System.nanoTime();
-		byte[] decomp = archiver.decompress(comp);
-		long[] longArray = Converter.convertToLong(decomp);
-		OpenBitSet decompedFomCompBitmap = new OpenBitSet(longArray, longArray.length);
-		long endFromCompToLong = System.nanoTime();
-		boolean isEqual = bitmap.equals(decompedFomCompBitmap);
-		showDecompResults("From comp " + isEqual, (endFromCompToLong - startFromCompToLong));
+		for(int i = 0; i < REPEAT_NUM; i++){
+			//圧縮
+			long startComp = System.nanoTime();
+			byte[] byteArray = Converter.convertToByte(bitmap.getBits());
+			byte[] comp = archiver.compress(byteArray);
+			long endComp = System.nanoTime();
+			System.out.println("Bytes: " + comp.length);
+			showResults("Comp(ms)", (endComp - startComp));
+			
+			//解凍
+			long startFromCompToLong = System.nanoTime();
+			byte[] decomp = archiver.decompress(comp);
+			Converter.convertToLong(decomp);
+			long endFromCompToLong = System.nanoTime();
+			showResults("Decomp(ms)", (endFromCompToLong - startFromCompToLong));			
+		}
 	}
-
 }
