@@ -15,4 +15,13 @@ public class BenchBitmapCompTest {
 		assertEquals(64, bitmap.length());
 		assertEquals(10, bitmap.cardinality());
 	}
+
+	@Test
+	public void testTargetBitmap2(){
+		OpenBitSet bitmap = BenchBitmapComp.createBitmap(10000, 5000);
+		
+		assertNotNull(bitmap);
+		assertEquals(10048, bitmap.length());
+		assertEquals(5000, bitmap.cardinality());
+	}
 }

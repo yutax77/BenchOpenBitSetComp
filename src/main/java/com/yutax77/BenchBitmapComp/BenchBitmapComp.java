@@ -44,7 +44,7 @@ public class BenchBitmapComp {
 		for(int i = 0; i < cardinality; i++){
 			int n = 0;
 			do{
-				n = rdm.nextInt(cardinality);				
+				n = rdm.nextInt(size);				
 			}while(result.fastGet(n));
 			
 			result.fastSet(n);
@@ -70,6 +70,9 @@ public class BenchBitmapComp {
 			//圧縮
 			long startComp = System.nanoTime();
 			byte[] byteArray = Converter.convertToByte(bitmap.getBits());
+			
+			//dumpByte(byteArray);
+
 			byte[] comp = archiver.compress(byteArray);
 			long endComp = System.nanoTime();
 			System.out.println("Bytes: " + comp.length);
@@ -82,5 +85,12 @@ public class BenchBitmapComp {
 			long endFromCompToLong = System.nanoTime();
 			showResults("Decomp(ms)", (endFromCompToLong - startFromCompToLong));			
 		}
+	}
+
+	void dumpByte(byte[] in) {
+		for(int i = 0; i < in.length; i++){
+			System.err.print(in[i]);
+		}
+		System.err.println();
 	}
 }
