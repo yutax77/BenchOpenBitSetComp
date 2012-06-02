@@ -33,6 +33,8 @@ public class BenchBitmapComp {
 			return new ZlibArchiver();
 		else if("SNAPPY".equalsIgnoreCase(type))
 			return new SnappyArchiver();
+		else if("LZMA".equalsIgnoreCase(type))
+			return new LzmaArchiver();
 		else
 			throw new IllegalArgumentException(type);
 	}
